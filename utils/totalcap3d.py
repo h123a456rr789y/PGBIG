@@ -31,7 +31,7 @@ class Datasets(Dataset):
         if actions is None:
             acts = ["acting", "freestyle", "rom", "walking"]
         else:
-            acts = actions
+            acts = [actions]
         
         
 

@@ -57,7 +57,7 @@ def main(opt):
         dataset = datasets.Datasets(opt, split=0)
         print('>>> Training dataset length: {:d}'.format(dataset.__len__()))
         data_loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=0, pin_memory=True)
-        valid_dataset = datasets.Datasets(opt, split=2)
+        valid_dataset = datasets.Datasets(opt, split=1)
         print('>>> Validation dataset length: {:d}'.format(valid_dataset.__len__()))
         valid_loader = DataLoader(valid_dataset, batch_size=opt.test_batch_size, shuffle=True, num_workers=0,
                                   pin_memory=True)
@@ -181,7 +181,6 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
         m_p3d = 0
     else:
         titles = (np.array(range(opt.output_n//3)) + 1)*100
-        print(titles)
         m_p3d = np.zeros([opt.output_n])
     n = 0
     in_n = opt.input_n
@@ -280,14 +279,14 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
 
     ret = {}
     if is_train == 0:
-        ret["l_p3d"] = l_p3d / n
+        ret["l_p3d"] = l_p3d / n *25.4
 
     if is_train <= 1:
-        ret["m_p3d"] = m_p3d / n
+        ret["m_p3d"] = m_p3d / n *25.4
     else:
         m_p3d = m_p3d / n
         for j in range(out_n//3):
-            ret["#{:d}ms".format(titles[j])] = m_p3d[j]
+            ret["#{:d}ms".format(titles[j])] = m_p3d[j*3+2]
     return ret
 
 if __name__ == '__main__':
