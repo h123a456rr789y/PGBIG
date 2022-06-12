@@ -1,0 +1,7 @@
+# ignore the visualization reuslts
+/utils/*.ipynb
+__pycache__/
+.ipynb_checkpoints
+
+/data/
+

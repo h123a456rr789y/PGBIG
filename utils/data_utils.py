@@ -214,6 +214,26 @@ def readCSVasFloat(filename):
     returnArray = np.array(returnArray)
     return returnArray
 
+def readCSVasFloat_TotalCap(filename):
+    """
+    Borrowed from SRNN code. Reads a csv and returns a float matrix.
+    https://github.com/asheshjain399/NeuralModels/blob/master/neuralmodels/utils.py#L34
+    Args
+      filename: string. Path to the csv file
+    Returns
+      returnArray: the read data in a float32 matrix
+    """
+    returnArray = []
+    lines = open(filename).readlines()[1:]
+    for line in lines:
+        line = line.replace('\t',' ')
+        line = line.split(' ')
+        line.pop()
+        if len(line) > 0:
+            returnArray.append(np.array([float(x) for x in line]))
+
+    returnArray = np.array(returnArray)
+    return returnArray
 
 def normalize_data(data, data_mean, data_std, dim_to_use, actions, one_hot):
     """
