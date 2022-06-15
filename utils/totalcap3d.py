@@ -35,9 +35,11 @@ class Datasets(Dataset):
         
         
 
-
+        
         subs = subs[split]
         #all_seqs, dim_used= data_utils.load_data_totalcap_3d(self.path_to_data, subs, acts, self.sample_rate, input_n + output_n)
+        
+        
         key=0
         for subj in subs:
             for action_idx in np.arange(len(acts)):
@@ -54,7 +56,6 @@ class Datasets(Dataset):
                         the_sequence = np.array(action_sequence[even_list, :])
                         the_seq = torch.from_numpy(the_sequence).float().cuda()
                         self.p3d[key] = the_seq.view(num_frames, -1).cpu().data.numpy()
-
                         valid_frames = np.arange(0, num_frames - seq_len + 1, opt.skip_rate)
                         tmp_data_idx_1 = [key] * len(valid_frames)
                         tmp_data_idx_2 = list(valid_frames)
@@ -113,12 +114,48 @@ class Datasets(Dataset):
                         tmp_data_idx_2 = list(valid_frames)
                         self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2))
                         key += 1
-                
+                        
+        # sampled_seq = []
+        # for i in range(len(self.data_idx)):
+        #     print(self.p3d[i])
+        #     print(self.p3d[i].shape)
+        #     valid_frames = np.arange(0, num_frames - seq_len + 1, opt.skip_rate)
+        #     tmp_data_idx = list(valid_frames)
+        #     # print(tmp_data_idx)
+        #     sampled_seq = np.append(sampled_seq, self.p3d[i][tmp_data_idx], axis=0)
+        
+        # print(sampled_seq.shape)
+        
+        ## Select the huge movement (inertia_changes) clips for testing  
+
+        # sampled_seq = []
+        # if self.split==1:
+        #     for i in range(np.shape(self.data_idx)[0]):
+        #         key, start_frame = self.data_idx[i]
+        #         fs = np.arange(start_frame, start_frame + self.in_n + self.out_n)
+        #         print(self.p3d[key][fs].shape)
+        #         sampled_seq = np.append(sampled_seq, self.p3d[key][fs])
+        #     print(sampled_seq.shape)
+        #     # selected_clips=data_utils.select_inertia_changes_clips(all_seqs,threshold=opt.inertia_thres)
+        #     # all_seqs=all_seqs[selected_clips,:,:]     
+   
 
     def __len__(self):
         return np.shape(self.data_idx)[0]
 
     def __getitem__(self, item):
+        
         key, start_frame = self.data_idx[item]
         fs = np.arange(start_frame, start_frame + self.in_n + self.out_n)
-        return self.p3d[key][fs]
+        if self.split==1:
+            seq_len, joint_n =self.p3d[key][fs].shape
+            if(data_utils.select_inertia_changes_clips(self.p3d[key][fs],threshold=self.opt.inertia_thres)):
+                # print(self.p3d[key][fs])
+                # print("Huge Movement")
+                return self.p3d[key][fs]
+            else:
+                # print("Small Movement")
+                return np.zeros((seq_len,joint_n), dtype=int)  
+        else:
+            return self.p3d[key][fs]      
+        

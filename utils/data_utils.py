@@ -815,3 +815,33 @@ def find_indices_srnn(frame_num1, frame_num2, seq_len, input_n=10):
             idxo1 = np.vstack((idxo1, idxs1))
             idxo2 = np.vstack((idxo2, idxs2))
     return idxo1, idxo2
+
+
+def select_inertia_changes_clips(sequence,threshold=70):
+    #threshold:inches of taltal joint movement
+    
+    total_n,_ = sequence.shape
+    input_head_joint = sequence[:,0:3]
+    input_Hips_joint = sequence[:,6:9]
+    input_RightForeArm_joint = sequence[:,27:30]
+    input_LeftForeArm_joint = sequence[:,39:42]
+    input_RightLeg_joint = sequence[:,48:51]
+    input_LeftLeg_joint = sequence[:,57:60]
+    pose_movement=[]
+    for j in range(1,total_n):
+        pose_movement.append(input_head_joint[j,0:3]-input_head_joint[j-1,0:3])
+        pose_movement.append(input_Hips_joint[j,0:3]-input_Hips_joint[j-1,0:3])
+        pose_movement.append(input_RightForeArm_joint[j,0:3]-input_RightForeArm_joint[j-1,0:3])
+        pose_movement.append(input_LeftForeArm_joint[j,0:3]-input_LeftForeArm_joint[j-1,0:3])
+        pose_movement.append(input_RightLeg_joint[j,0:3]-input_RightLeg_joint[j-1,0:3])
+        pose_movement.append(input_LeftLeg_joint[j,0:3]-input_LeftLeg_joint[j-1,0:3])
+    
+    pose_movement=np.linalg.norm(pose_movement,axis=1)
+    movement_sum=sum(pose_movement)
+    if movement_sum>=threshold:
+        # Huge movement 
+        return True
+    else:
+        # slight movement 
+        return False
+        

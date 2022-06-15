@@ -57,12 +57,12 @@ def main(opt):
         dataset = datasets.Datasets(opt, split=0)
         print('>>> Training dataset length: {:d}'.format(dataset.__len__()))
         data_loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=0, pin_memory=True)
-        valid_dataset = datasets.Datasets(opt, split=1)
+        valid_dataset = datasets.Datasets(opt, split=2)
         print('>>> Validation dataset length: {:d}'.format(valid_dataset.__len__()))
         valid_loader = DataLoader(valid_dataset, batch_size=opt.test_batch_size, shuffle=True, num_workers=0,
                                   pin_memory=True)
 
-    test_dataset = datasets.Datasets(opt, split=2)
+    test_dataset = datasets.Datasets(opt, split=1)
     print('>>> Testing dataset length: {:d}'.format(test_dataset.__len__()))
     test_loader = DataLoader(test_dataset, batch_size=opt.test_batch_size, shuffle=False, num_workers=0,
                              pin_memory=True)
@@ -86,9 +86,9 @@ def main(opt):
             lr_now = util.lr_decay_mine(optimizer, lr_now, 0.1 ** (1 / opt.epoch))
             print('>>> training epoch: {:d}'.format(epo))
             ret_train = run_model(net_pred, optimizer, is_train=0, data_loader=data_loader, epo=epo, opt=opt)
-            print('train error: {:.3f}'.format(ret_train['m_p3d']))
+            print('train error: {:.3f}'.format(ret_train['m_p3d']*25.4))
             ret_valid = run_model(net_pred, is_train=1, data_loader=valid_loader, opt=opt, epo=epo)
-            print('validation error: {:.3f}'.format(ret_valid['m_p3d']))
+            print('validation error: {:.3f}'.format(ret_valid['m_p3d']*25.4))
             ret_test = run_model(net_pred, is_train=3, data_loader=test_loader, opt=opt, epo=epo)
             print('testing error: {:.3f}'.format(ret_test['#100ms']*25.4))
             ret_log = np.array([epo, lr_now])
@@ -104,7 +104,7 @@ def main(opt):
                 head = np.append(head, ['test_' + k])
             log.save_csv_log(opt, head, ret_log, is_create=(epo == 1))
             if ret_valid['m_p3d'] < err_best:
-                err_best = ret_valid['m_p3d']
+                err_best = ret_valid['m_p3d'] 
                 is_best = True
             log.save_ckpt({'epoch': epo,
                            'lr': lr_now,
@@ -133,7 +133,7 @@ def eval(opt):
 
     data_loader = {}
     for act in acts:
-        dataset = datasets.Datasets(opt=opt, split=2, actions=act)
+        dataset = datasets.Datasets(opt=opt, split=1, actions=act)
         data_loader[act] = DataLoader(dataset, batch_size=opt.test_batch_size, shuffle=False, num_workers=0,
                              pin_memory=True)
     #do test
@@ -203,7 +203,21 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
     st = time.time()
     for i, (p3d) in enumerate(data_loader):
         # print(i)
-        batch_size, seq_n, _ = p3d.shape
+        batch_size, seq_n, joint_n = p3d.shape
+        p3d_thres = torch.tensor([])
+        for j in range(batch_size):
+            if(p3d[j,:,:].sum()!=0):
+                p3d_thres = torch.cat((p3d_thres, p3d[j,:,:]),0)
+        
+        p3d_thres= torch.reshape(p3d_thres,(-1,seq_n,joint_n))
+        # p3d = np.array(p3d_thres)
+        p3d=p3d_thres
+        batch_size,_,_ = p3d.shape
+        # print(p3d)
+        if (p3d.sum()==0):
+            continue
+
+        #print(p3d)
         # when only one sample in this batch
         if batch_size == 1 and is_train == 0:
             continue
@@ -240,9 +254,9 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
         p3d_out_4 = p3d.clone()[:, in_n:in_n + out_n]
         p3d_out_4[:, :, dim_used] = p3d_out_all_4[:, seq_in:]
         # p3d_out_4[:, :, index_to_ignore] = p3d_out_4[:, :, index_to_equal]
-        p3d_out_4 = p3d_out_4.reshape([-1, out_n, 21, 3])
+        p3d_out_4 = p3d_out_4.reshape([-1, out_n, joint_n//3, 3])
 
-        p3d = p3d.reshape([-1, in_n + out_n, 21, 3])
+        p3d = p3d.reshape([-1, in_n + out_n, joint_n//3, 3])
 
         p3d_out_all_4 = p3d_out_all_4.reshape([batch_size, seq_in + out_n, len(dim_used) // 3, 3])
         p3d_out_all_3 = p3d_out_all_3.reshape([batch_size, seq_in + out_n, len(dim_used) // 3, 3])
@@ -279,10 +293,10 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
 
     ret = {}
     if is_train == 0:
-        ret["l_p3d"] = l_p3d / n *25.4
+        ret["l_p3d"] = l_p3d / n 
 
     if is_train <= 1:
-        ret["m_p3d"] = m_p3d / n *25.4
+        ret["m_p3d"] = m_p3d / n 
     else:
         m_p3d = m_p3d / n
         for j in range(out_n//3):

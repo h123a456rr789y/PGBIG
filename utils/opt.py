@@ -54,6 +54,7 @@ class Options:
         self.parser.add_argument('--dct_n', type=int, default=20, help='future frame number')
         self.parser.add_argument('--lr_now', type=float, default=0.005)
         self.parser.add_argument('--max_norm', type=float, default=10000)
+        self.parser.add_argument('--inertia_thres', type=int, default=0, help='Inertia changes threshold for selected clips')
         self.parser.add_argument('--epoch', type=int, default=100)
         self.parser.add_argument('--batch_size', type=int, default=32)
         self.parser.add_argument('--test_batch_size', type=int, default=32)
