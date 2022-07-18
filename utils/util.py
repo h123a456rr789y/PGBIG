@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import random
 
 def lr_decay_mine(optimizer, lr_now, gamma):
     lr = lr_now * gamma
@@ -65,3 +65,13 @@ def get_dct_matrix(N):
             dct_m[k, i] = w * np.cos(np.pi * (i + 1 / 2) * k / N)
     idct_m = np.linalg.inv(dct_m)
     return dct_m, idct_m
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False

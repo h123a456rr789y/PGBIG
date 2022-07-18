@@ -22,7 +22,7 @@
     "dct_n": 25,
     "lr_now": 0.005,
     "max_norm": 10000,
-    "inertia_thres": 70,
+    "inertia_thres": 0,
     "epoch": 50,
     "batch_size": 32,
     "test_batch_size": 32,

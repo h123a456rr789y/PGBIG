@@ -7,6 +7,10 @@ from model import stage_4
 from utils.opt import Options
 from utils import util
 from utils import log
+from utils import viz_totalcap_3d as viz
+from utils import util as util
+
+from matplotlib import pyplot as plt
 
 from torch.utils.data import DataLoader
 import torch
@@ -121,6 +125,9 @@ def eval(opt):
     net_pred.to(opt.cuda_idx)
     net_pred.eval()
 
+
+    seed=1
+    util.set_seed(seed)
     #load model
     model_path_len = './{}/ckpt_best.pth.tar'.format(opt.ckpt)
     print(">>> loading ckpt len from '{}'".format(model_path_len))
@@ -130,18 +137,17 @@ def eval(opt):
     print(">>> ckpt len loaded (epoch: {} | err: {})".format(ckpt['epoch'], ckpt['err']))
 
     acts = ["acting", "freestyle", "rom", "walking"]
-
     data_loader = {}
     for act in acts:
         dataset = datasets.Datasets(opt=opt, split=1, actions=act)
-        data_loader[act] = DataLoader(dataset, batch_size=opt.test_batch_size, shuffle=False, num_workers=0,
+        data_loader[act] = DataLoader(dataset, batch_size=opt.test_batch_size, shuffle=True, num_workers=10,
                              pin_memory=True)
     #do test
     is_create = True
     avg_ret_log = []
 
     for act in acts:
-        ret_test = run_model(net_pred, is_train=3, data_loader=data_loader[act], opt=opt)
+        ret_test = run_model(net_pred, is_train=3, data_loader=data_loader[act], opt=opt,act=act)
         ret_log = np.array([act])
         head = np.array(['action'])
 
@@ -170,7 +176,7 @@ def smooth(src, sample_len, kernel_size):
     for i in range(kernel_size, sample_len):
         smooth_data[:, i] = torch.mean(src_data[:, kernel_size:i+1], dim=1)
     return smooth_data
-def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt=None):
+def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt=None,act=None):
     if is_train == 0:
         net_pred.train()
     else:
@@ -202,7 +208,6 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
     #         out_n - seq_in + np.expand_dims(np.arange(itera), axis=0))
     st = time.time()
     for i, (p3d) in enumerate(data_loader):
-        # print(i)
         batch_size, seq_n, joint_n = p3d.shape
         p3d_thres = torch.tensor([])
         for j in range(batch_size):
@@ -210,14 +215,11 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
                 p3d_thres = torch.cat((p3d_thres, p3d[j,:,:]),0)
         
         p3d_thres= torch.reshape(p3d_thres,(-1,seq_n,joint_n))
-        # p3d = np.array(p3d_thres)
         p3d=p3d_thres
         batch_size,_,_ = p3d.shape
-        # print(p3d)
         if (p3d.sum()==0):
             continue
 
-        #print(p3d)
         # when only one sample in this batch
         if batch_size == 1 and is_train == 0:
             continue
@@ -255,14 +257,20 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
         p3d_out_4[:, :, dim_used] = p3d_out_all_4[:, seq_in:]
         # p3d_out_4[:, :, index_to_ignore] = p3d_out_4[:, :, index_to_equal]
         p3d_out_4 = p3d_out_4.reshape([-1, out_n, joint_n//3, 3])
-
         p3d = p3d.reshape([-1, in_n + out_n, joint_n//3, 3])
-
+        
+        #p3d_out = p3d_out_4.reshape([-1, out_n, joint_n])
+        p3d_in = p3d.reshape([-1, in_n + out_n, joint_n])
+        #p3d_in = np.array(p3d_in.cpu())
+        # p3d_in = p3d_in.permute(0, 2, 1)
+        # print(p3d_in.shape) 
         p3d_out_all_4 = p3d_out_all_4.reshape([batch_size, seq_in + out_n, len(dim_used) // 3, 3])
         p3d_out_all_3 = p3d_out_all_3.reshape([batch_size, seq_in + out_n, len(dim_used) // 3, 3])
         p3d_out_all_2 = p3d_out_all_2.reshape([batch_size, seq_in + out_n, len(dim_used) // 3, 3])
         p3d_out_all_1 = p3d_out_all_1.reshape([batch_size, seq_in + out_n, len(dim_used) // 3, 3])
-
+        p3d_out = p3d_out_all_4.reshape([-1,in_n + out_n, joint_n])
+        #p3d_out =  np.array(p3d_out.cpu())
+        # print(p3d_out.shape) 
         # 2d joint loss:
         grad_norm = 0
         if is_train == 0:
@@ -289,6 +297,31 @@ def run_model(net_pred, optimizer=None, is_train=0, data_loader=None, epo=1, opt
         if i % 1000 == 0:
             print('{}/{}|bt {:.3f}s|tt{:.0f}s|gn{}'.format(i + 1, len(data_loader), time.time() - bt,
                                                            time.time() - st, grad_norm))
+
+        # evlauation
+        if is_train > 1:
+
+            file_path ='./vis_result/{}/'.format(act)
+            isExist = os.path.exists(file_path)
+            if not isExist:
+                os.mkdir(file_path)
+
+
+            tested_batch= [0,5,11,17,23,31]
+            
+            for k in range(len(tested_batch)):
+                fig3d = plt.figure()
+                ax = fig3d.add_subplot(projection='3d') 
+                figure_title = "_action:{}, seq:{},".format(act, (k + 1))
+                viz.plot_predictions(p3d_in[tested_batch[k], :, :], p3d_out[tested_batch[k], :, :], ax, figure_title,act,k+1,in_n)
+                plt.close()
+
+                fig2d = plt.figure( figsize=(50, 40))
+                viz.plot_predictions_2d(p3d_in[tested_batch[k], :, :], p3d_out[tested_batch[k], :, :], figure_title,act,k+1,in_n)
+                plt.close()
+                plt.pause(1)
+            break 
+                                            
 
 
     ret = {}
